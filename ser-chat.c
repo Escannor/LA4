@@ -20,6 +20,7 @@
 #include <stdio.h>                     /* standard input/output               */
 #include <unistd.h>                    /* unix standard functions             */
 #include <string.h>                    /* text handling functions             */
+#include <signal.h>
 #include <time.h> //time handling
 
 /* -------------------------------------------------------------------------- */
@@ -27,7 +28,7 @@
 /* -------------------------------------------------------------------------- */
 #define  BUFFERSIZE 1024               /* buffer size                         */
 #define  MAX_MEMBERS 10                /* maximum number of members in room   */
-
+#define MAX_GAMERS 4
 /* -------------------------------------------------------------------------- */
 /* global variables and structures                                            */
 /* -------------------------------------------------------------------------- */
@@ -45,6 +46,8 @@ struct member
     struct sockaddr_in address;               /* address of the member        */    
   };
 
+int start_counter(void);
+int game_timer=0;
 /* -------------------------------------------------------------------------- */
 /* main ()                                                                    */
 /*                                                                            */
@@ -65,6 +68,11 @@ main()
     struct member list[MAX_MEMBERS];   /* list of members in room             */
     time_t hb[MAX_MEMBERS]; //list of times, last heartbeat received
     time_t time_hb; //time of heartbeat 
+    /*Game Variables*/
+    int start_req = 0; //Know how many participants are in the game
+    int gamers[MAX_GAMERS]; //Array of participants playing
+    int game; //Start Ready
+
 
     /* ---------------------------------------------------------------------- */
     /* structure of the socket that will read what comes from the client      */
@@ -158,12 +166,65 @@ main()
               }
             for (i=0; i < MAX_MEMBERS; ++i)
               if ((i != message.chat_id) && (list[i].chat_id != -1))
-                sendto(sfd,text1,strlen(text1),0,(struct sockaddr *)&(list[i].address),sizeof(struct sockaddr_in));      
+                sendto(sfd,text1,strlen(text1),0,(struct sockaddr *)&(list[i].address),sizeof(struct sockaddr_in));  
+
+            //Start of game functionality//
+            if(strcmp(message.data_text, "Start Game") == 0){
+              //Wait for other players to join//
+              if(start_req == 0){
+                sprintf(text1, "Client [%s] wants to play. Type 'Start Game' to join",list[message.chat_id].alias);
+                gamers[start_req] = message.chat_id;
+                start_req ++;
+                signal(SIGALRM, start_counter);
+                alarm(30);
+              }else{
+                if(start_req <4){
+                  gamers[start_req] = message.chat_id;
+                  start_req ++;
+                  sprintf(text1, "Client [%s] has joined the game. There are %d spots available", list[message.chat_id].alias, MAX_GAMERS-start_req);
+                }else{
+                  sprintf(text1, "Game Room is full");
+                }
+              }
+              //Send msg to participants
+              for(i=0; i<MAX_MEMBERS; ++i)
+                if((i!= message.chat_id) && (list[i].chat_id != -1))
+                  sendto(sfd,text1,strlen(text1),0,(struct sockaddr *)&(list[i].address),sizeof(struct sockaddr_in));
+              //Game starts//
+
+            }    
           }
         /* If data_type == 2, it means this is a heartbeat signal */
         if (message.data_type == 2){
           double time_diff;
           time(&time_hb); //get time
+
+          /*--------------------------------------
+          Handle game start when timer is finished
+          -----------------------------------------*/
+          if(game_timer == 30){
+            game_timer = 0;
+            if(start_req>=2 && start_req<=4){
+              char *target = text1;
+              printf("Hay %d jugadores en la partida:\n", start_req);
+              target+=sprintf(target,"\nHay %d jugadores en la partida:\n", start_req);
+              for(i=0; i<start_req; i++){
+                printf("%d.- [%s]\n", (i+1), list[gamers[i]].alias);
+                target += sprintf(target, "%d.- [%s]\n", (i+1), list[gamers[i]].alias);
+              }
+              
+            }else{
+              sprintf(text1, "\nExit Game Mode\n");
+            }
+            printf("Concat str: %s", text1);
+            for(i=0;i<MAX_MEMBERS; ++i)
+                if(list[i].chat_id != -1){
+                  sendto(sfd,text1,strlen(text1),0,(struct sockaddr *)&(list[i].address),sizeof(struct sockaddr_in));
+                }
+          }
+          /*--------------------------------------
+          End of game start handling
+          -----------------------------------------*/
           for(i=0; i < participants; i++){
             if(i == message.chat_id){
               hb[i] = time_hb;
@@ -172,7 +233,7 @@ main()
             if(time_diff > 30){
               sprintf(text1,"Client [%s] disconnected due to inactivity.",list[i].alias);
               printf("Participant [%s] disconnected", list[i].alias);
-              list[i].chat_id = -1;
+              list[i].chat_id = -1; 
               -- participants;
               for (j=0; j < MAX_MEMBERS; ++j)
               if ((j != i) && (list[j].chat_id != -1))
@@ -186,4 +247,6 @@ main()
     return(0);
   }
 
-
+int start_counter(){
+  game_timer = 30;
+}
