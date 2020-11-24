@@ -43,6 +43,8 @@ struct hb_arguments{
   void *sock_write;
 }; typedef struct hb_arguments Hb_arguments;
 
+int game=0;
+
 /* ------------------------------------------------------------------------- */
 /* print_message()                                                           */
 /*                                                                           */
@@ -63,6 +65,8 @@ void *print_message(void *ptr)
         read_char = recvfrom(*sock_desc,text1,BUFFERSIZE,0,NULL,NULL);
         text1[read_char] = '\0';
         printf("%s\n",text1);
+        if (strcmp(text1, "Exit Game Mode"))
+          game = 0;
       }
 }
 
@@ -153,7 +157,16 @@ main()
     /* ---------------------------------------------------------------------- */
     while ((strcmp(message.data_text,"exit") != 0) && (strcmp(message.data_text,"shutdown") != 0))
       {
-        printf("$ ");
+        if(strcmp(message.data_text, "Start Game") == 0){
+          printf("♠♥♦♣   GAME MODE   ♣♦♥♠\n");
+          game = 1;
+        }
+        if(game == 1){
+          printf("♠♥♦♣# ");
+        }else{
+          printf("$ ");
+        }
+        
         
         /* assembling of the message to send                                  */
         
