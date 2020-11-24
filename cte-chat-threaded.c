@@ -36,7 +36,7 @@ struct data
     int  chat_id;                                /* chat id sent by server    */
     char data_text[BUFFERSIZE-(sizeof(int)*2)];  /* data sent                 */
   };
-
+struct data message;               /* message to sendto the server        */
 
 struct hb_arguments{
   void *sfd;
@@ -67,20 +67,20 @@ void *print_message(void *ptr)
 }
 
 void *heart_beat(void *ptr){
-  Hb_arguments * args = (Hb_arguments *)ptr;
-  int *sock_desc = (int *)Hb_arguments->sfd;
-  struct sockaddr_in *sock_write = (struct sockaddr *)Hb_arguments->sock_write;
+  Hb_arguments *args = (Hb_arguments *)ptr;
+  int *sock_desc = (int *)args->sfd;
+  struct sockaddr_in *sock_write = (struct sockaddr *)args->sock_write;
 
   while(1){
     message.data_type = 2;
     strcpy(message.data_text, "Here");
-    sendto(*sock_desc,(struct data *)&(message),0,(struct sockaddr *)&(*sock_write),sizeof(*sock_write));
+    sendto(*sock_desc,(struct data *)&(message),sizeof(struct data),0,(struct sockaddr *)&(*sock_write),sizeof(*sock_write));
     sleep(10);
   }
 }
 
 
-struct data message;               /* message to sendto the server        */
+
 /* -------------------------------------------------------------------------- */
 /* main ()                                                                    */
 /*                                                                            */
@@ -104,7 +104,7 @@ main()
     /* the IP address is the one of the server waiting for our messages       */
     /* ---------------------------------------------------------------------- */
     sock_write.sin_family = AF_INET;    
-    sock_write.sin_port   = 27007;
+    sock_write.sin_port   = 10011;
     inet_aton("200.13.89.15", (struct in_addr *)&sock_write.sin_addr);
     memset(sock_write.sin_zero, 0, 8);
 
@@ -136,15 +136,15 @@ main()
         printf("Client could not join. Too many participants in room\n");
         close(sfd);  
         return(0);
-      } 
+      }
 
     /* Creation of reading thread                                            */
     iret1 = pthread_create( &thread1, NULL, print_message, (void *)(&sfd));
     /* Fill struct values*/
-    hb_arguments.sfd = (void *)&sfd;
-    hb_arguments.sock_write = (void *)&sock_write;
+    hb_args.sfd = (void *)&sfd;
+    hb_args.sock_write = (void *)&sock_write;
     /* Creation of the heartbeat function                                    */
-    hb_fun = pthread_create(&thread2, NULL, heart_beat, (void * )(&hb_arguments));
+    hb_fun = pthread_create(&thread2, NULL, heart_beat, (void * )(&hb_args));
 
     /* ---------------------------------------------------------------------- */
     /* text typed by the user isread and sent to the server.  The client then */
@@ -156,12 +156,12 @@ main()
         printf("$ ");
         
         /* assembling of the message to send                                  */
-        message.data_type = 1;         /* data_type 1 is used to send message */
+        
         fgets(message.data_text, BUFFERSIZE-(sizeof(int)*2), stdin);
         for(auxptr = message.data_text; *auxptr != '\n'; ++auxptr);
 	        *auxptr = '\0';
         message.chat_id = chat_id;
- 
+        message.data_type = 1;         /* data_type 1 is used to send message */
         sendto(sfd,(struct data *)&(message),sizeof(struct data),0,(struct sockaddr *)&(sock_write),sizeof(sock_write));
       }
     close(sfd);  
