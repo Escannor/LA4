@@ -70,7 +70,7 @@ main()
     /* structure of the socket that will read what comes from the client      */
     /* ---------------------------------------------------------------------- */
     sock_read.sin_family = AF_INET;    
-    sock_read.sin_port   = 27007; 
+    sock_read.sin_port   = 10011; 
     inet_aton("200.13.89.15",(struct in_addr *)&sock_read.sin_addr);
     memset(sock_read.sin_zero, 0, 8);
 
@@ -107,7 +107,7 @@ main()
         client_address = inet_ntoa(sock_write.sin_addr);
         printf("Server: From Client with Address-[%s], Port-[%d], AF-[%d].\n", client_address, sock_write.sin_port, sock_write.sin_family);
 
-        
+        printf("Participants when msg is received: %d\n", participants);        
         /* if data_type == 0, it means that the client is logging in          */
         if (message.data_type == 0)    /* Add new member to chat room         */
           {
@@ -128,14 +128,16 @@ main()
             printf("Value of i:[%d]\n", i);
             sendto(sfd,(void *)&(i),sizeof(int),0,(struct sockaddr *)&(sock_write),sizeof(struct sockaddr));      
             
-            time(&time_hb);
-            hb[i] = time_hb;
+            
             /* We notify the entrance to the chat of the new participant      */
             /* Variable i still keeps the number of the last member added     */
             sprintf(text1,"Participante [%s] se ha unido al grupo.\n",message.data_text);
             for (j=0; j < MAX_MEMBERS; ++j)
               if ((j != i) && (list[j].chat_id != -1))
-                sendto(sfd,text1,strlen(text1),0,(struct sockaddr *)&(list[j].address),sizeof(struct sockaddr_in));      
+                sendto(sfd,text1,strlen(text1),0,(struct sockaddr *)&(list[j].address),sizeof(struct sockaddr_in));
+
+            time(&time_hb);
+            hb[i] = time_hb;      
           }
 
         /* if data_type == 1, it means that this is a message                 */
@@ -160,15 +162,21 @@ main()
           }
         /* If data_type == 2, it means this is a heartbeat signal */
         if (message.data_type == 2){
+          double time_diff;
           time(&time_hb); //get time
-          for(int i=0; i < MAX_MEMBERS; i++){
+          for(i=0; i < participants; i++){
             if(i == message.chat_id){
               hb[i] = time_hb;
             }
-            if(difftime(time_hb, hb[i]) > 30){
-              sprintf(text1,"Client [%s] disconnected due to inactivity.",list[message.chat_id].alias);
-              list[message.chat_id].chat_id = -1;
+            time_diff = difftime(time_hb, hb[i]);
+            if(time_diff > 30){
+              sprintf(text1,"Client [%s] disconnected due to inactivity.",list[i].alias);
+              printf("Participant [%s] disconnected", list[i].alias);
+              list[i].chat_id = -1;
               -- participants;
+              for (j=0; j < MAX_MEMBERS; ++j)
+              if ((j != i) && (list[j].chat_id != -1))
+                sendto(sfd,text1,strlen(text1),0,(struct sockaddr *)&(list[j].address),sizeof(struct sockaddr_in));
             }
           }
         }
