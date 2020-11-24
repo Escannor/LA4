@@ -120,7 +120,7 @@ main()
     /* first tim and providing an alias. we will receive a integer with a nu- */
     /* meric id that we will send in every next message                       */
     /* ---------------------------------------------------------------------- */
-    printf("Please provide an alias: ");
+    printf("Ingresa un apodo: ");
     message.chat_id = 0;
     message.data_type = 0;             /* data_type 0 is used to send alias   */
     message.data_text[0] = '\0'; 
@@ -133,7 +133,7 @@ main()
     read_char = recvfrom(sfd,(int *)&(chat_id),sizeof(int),0,NULL,NULL);    
     if (chat_id == -1)                 /* client rejected                     */
       {
-        printf("Client could not join. Too many participants in room\n");
+        printf("Error al unirse. Ya hay muchos participantes en la sala\n");
         close(sfd);  
         return(0);
       } 
